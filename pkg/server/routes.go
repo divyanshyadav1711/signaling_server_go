@@ -9,7 +9,7 @@ import (
 // SetupRoutes initializes all routes for the signaling server.
 func SetupRoutes(log *logrus.Logger) {
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		HandleConnection(w, r, log) // Exported WebSocket handler
+		HandleConnection(w, r, log) 
 	})
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

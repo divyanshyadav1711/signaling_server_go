@@ -1,6 +1,7 @@
 package matching
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ type User struct {
 }
 
 var (
+	id=0        
 	queue     []*User
 	queueLock sync.Mutex
 
@@ -23,8 +25,9 @@ var (
 
 // NewUser creates a new User with a unique ID.
 func NewUser(conn *websocket.Conn) *User {
+	id++;
 	return &User{
-		ID:   fmt.Sprintf("user-%d", len(queue)+1),
+		ID:   fmt.Sprintf("user-%d", id),
 		Conn: conn,
 	}
 }
@@ -64,14 +67,13 @@ func matchUsers() {
 
 	user1 := queue[0]
 	user2 := queue[1]
-	queue = queue[2:] // Remove matched users
+	queue = queue[2:] 
 	SetPeer(user1, user2)
 
 	notifyUser(user1, user2)
 	notifyUser(user2, user1)
 }
 
-// notifyUser sends a match notification to a user.
 func notifyUser(user *User, peer *User) {
 	if peer == nil {
 		err := user.Conn.WriteMessage(websocket.TextMessage, []byte("Your peer disconnected."))
@@ -81,12 +83,11 @@ func notifyUser(user *User, peer *User) {
 		}
 		return
 	}
-
-	err := user.Conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Matched with %s", peer.ID)))
-	if err != nil {
-		fmt.Printf("Failed to notify user %s: %v\n", user.ID, err)
-		HandleDisconnect(user)
-	}
+	// Sending start-call message to the user
+	user.Conn.WriteJSON(map[string]interface{}{
+		"type":    "start-call",
+		"message": "Start your call now!",
+	})
 }
 
 // GetPeer retrieves the peer of a user.
@@ -131,4 +132,32 @@ func HandlePeerDisconnect(user *User) {
 		QueueUser(peer) // Optionally re-queue the peer
 	}
 	RemovePeer(user)
+}
+
+
+// StartCallPayload represents the payload structure sent to the client
+type StartCallPayload struct {
+	Message string `json:"message"` // The message content
+}
+
+// sendStartCall sends a "start-call" event with a structured payload
+func sendStartCall(conn *websocket.Conn, message string) error {
+	// Create the payload
+	payload := StartCallPayload{
+		Message: message,
+	}
+
+	// Serialize the payload to JSON
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to serialize payload: %w", err)
+	}
+
+	// Send the "start-call" event with the payload
+	err = conn.WriteMessage(websocket.TextMessage, data)
+	if err != nil {
+		return fmt.Errorf("failed to send start-call event: %w", err)
+	}
+
+	return nil
 }
