@@ -7,16 +7,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Start starts the signaling server.
-
+// Start starts the signaling server without SSL/TLS.
 func Start(cfg *config.Config, log *logrus.Logger) {
-	// Initialize routes
+	// Setup routes (unchanged)
 	SetupRoutes(log)
 
-	// Bind to all interfaces (0.0.0.0) and use the configured port
-	log.Infof("Server running on port %s", cfg.ServerPort)
-	if err := http.ListenAndServe("0.0.0.0:"+cfg.ServerPort, nil); err != nil {
+	// Define the server address
+	address := "0.0.0.0:" + cfg.ServerPort
+
+	// Log the server start message
+	log.Infof("Server running on http://%s", address)
+
+	// Start the HTTP server without SSL/TLS
+	if err := http.ListenAndServe(address, nil); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
-

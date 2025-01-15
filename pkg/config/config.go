@@ -1,15 +1,27 @@
 package config
 
-import "os"
+import (
+	"os"
+)
 
 type Config struct {
-	ServerPort string
+	ServerPort  string
+	TLSCertFile string
+	TLSKeyFile  string
 }
 
+
 func LoadConfig() *Config {
+	
+	
+
+	
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
-		port = "5000" // Default port
+		port = "5000" 
 	}
-	return &Config{ServerPort: port}
+
+	return &Config{
+		ServerPort:  port,
+	}
 }
