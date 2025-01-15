@@ -9,8 +9,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//	var upgrader = websocket.Upgrader{
+//	    CheckOrigin: func(r *http.Request) bool {
+//	        origin := r.Header.Get("Origin")
+//	        allowedOrigins := []string{"http://localhost:3000", "http://example.com"} // Add trusted origins
+//	        for _, o := range allowedOrigins {
+//	            if origin == o {
+//	                return true
+//	            }
+//	        }
+//	        return false
+//	    },
+//	}
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
+		// Allow all origins for development. Restrict in production.
 		return true
 	},
 }
@@ -23,14 +36,13 @@ func HandleConnection(w http.ResponseWriter, r *http.Request, log *logrus.Logger
 		return
 	}
 	user := matching.NewUser(conn)
-
 	defer func() {
 		matching.RemoveUser(user)
 		matching.HandlePeerDisconnect(user)
 		conn.Close()
 	}()
-    
-	sendConnectData(user,log);
+
+	sendConnectData(user, log)
 	log.Infof("User %s connected", user.ID)
 	matching.QueueUser(user)
 
@@ -49,7 +61,7 @@ func HandleConnection(w http.ResponseWriter, r *http.Request, log *logrus.Logger
 
 		switch msg["type"].(string) {
 		case "offer":
-			log.Info("Received offer from user %s", user.ID)
+			log.Info("Received offer from user %s %s", user.ID, msg["offer"])
 			handleOffer(user, msg["offer"].(map[string]interface{}), log)
 		case "answer":
 			handleAnswer(user, msg["answer"].(map[string]interface{}), log)
@@ -66,14 +78,15 @@ func HandleConnection(w http.ResponseWriter, r *http.Request, log *logrus.Logger
 			sendError(conn, "Unknown message type")
 		}
 	}
+	log.Infof("Queue size is %d ", matching.GetQueueSize())
 }
 
 // sendConnectData sends the connect-data message to the client.
 func sendConnectData(user *matching.User, log *logrus.Logger) {
 	message := map[string]interface{}{
-		"type":     "connect-data",
-		"userId":   user.ID,
-		"isInitiator": true,  // You can modify this based on your matching logic
+		"type":        "connect-data",
+		"userId":      user.ID,
+		"isInitiator": true, // You can modify this based on your matching logic
 	}
 
 	err := user.Conn.WriteJSON(message)
@@ -92,16 +105,17 @@ func handleChat(user *matching.User, data string, log *logrus.Logger) {
 
 func handleNext(user *matching.User, log *logrus.Logger) {
 	peer := matching.GetPeer(user)
+	// remove peer
 	if peer != nil {
 		// Notify the peer that the user has disconnected
-		//`matching.notifyUser(peer, nil)`
+		matching.NotifyDiconnectionToPeer(peer)
+		matching.RemovePeer(peer)
 		matching.QueueUser(peer)
 	}
-
-	
+	// remove user
 	matching.RemovePeer(user)
-
 	matching.QueueUser(user)
+
 	log.Infof("User %s requested next", user.ID)
 }
 
@@ -120,9 +134,9 @@ func handleOffer(user *matching.User, offer map[string]interface{}, log *logrus.
 	}
 
 	err := peer.Conn.WriteJSON(map[string]interface{}{
-		"type":   "offer",
-		"offer":  offer,
-		"from":   user.ID,
+		"type":  "offer",
+		"offer": offer,
+		"from":  user.ID,
 	})
 	if err != nil {
 		log.Errorf("Failed to send offer to peer %s: %v", peer.ID, err)

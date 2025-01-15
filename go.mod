@@ -1,6 +1,6 @@
 module signaling_server
 
-go 1.23.4
+go 1.23
 
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect

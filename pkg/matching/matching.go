@@ -3,6 +3,7 @@ package matching
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -15,17 +16,17 @@ type User struct {
 }
 
 var (
-	id=0        
+	id        = 0
 	queue     []*User
 	queueLock sync.Mutex
 
-	peerMap   = make(map[string]*User)
-	peerLock  sync.Mutex
+	peerMap  = make(map[string]*User)
+	peerLock sync.Mutex
 )
 
 // NewUser creates a new User with a unique ID.
 func NewUser(conn *websocket.Conn) *User {
-	id++;
+	id++
 	return &User{
 		ID:   fmt.Sprintf("user-%d", id),
 		Conn: conn,
@@ -59,6 +60,17 @@ func RemoveUser(user *User) {
 	}
 }
 
+func NotifyDiconnectionToPeer(user *User) {
+	user.Conn.WriteJSON(map[string]interface{}{
+		"type":    "peer-disconnected",
+		"message": "Call ended by other user!",
+	})
+}
+
+func GetQueueSize() int {
+	return len(queue)
+}
+
 // matchUsers matches two users from the queue and establishes a peer relationship.
 func matchUsers() {
 	if len(queue) < 2 {
@@ -67,11 +79,12 @@ func matchUsers() {
 
 	user1 := queue[0]
 	user2 := queue[1]
-	queue = queue[2:] 
+	queue = queue[2:]
+	log.Printf("Users %s and %s matched and removed from the queue. Current queue size: %d", user1.ID, user2.ID, len(queue))
 	SetPeer(user1, user2)
 
 	notifyUser(user1, user2)
-	notifyUser(user2, user1)
+	// notifyUser(user2, user1)
 }
 
 func notifyUser(user *User, peer *User) {
@@ -127,13 +140,13 @@ func HandleDisconnect(user *User) {
 func HandlePeerDisconnect(user *User) {
 	peer := GetPeer(user)
 	if peer != nil {
-		notifyUser(peer, nil) // Notify the peer of disconnection
+		// notifyUser(peer, nil) // Notify the peer of disconnection
 		RemovePeer(peer)
+		NotifyDiconnectionToPeer(peer)
 		QueueUser(peer) // Optionally re-queue the peer
 	}
 	RemovePeer(user)
 }
-
 
 // StartCallPayload represents the payload structure sent to the client
 type StartCallPayload struct {
