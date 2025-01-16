@@ -95,14 +95,6 @@ func sendConnectData(user *matching.User, log *logrus.Logger) {
 	}
 }
 
-func handleChat(user *matching.User, data string, log *logrus.Logger) {
-	peer := matching.GetPeer(user)
-
-	if peer != nil {
-		peer.Conn.WriteMessage(websocket.TextMessage, []byte(data))
-	}
-}
-
 func handleNext(user *matching.User, log *logrus.Logger) {
 	peer := matching.GetPeer(user)
 	// remove peer
@@ -160,6 +152,31 @@ func handleAnswer(user *matching.User, answer map[string]interface{}, log *logru
 	if err != nil {
 		log.Errorf("Failed to send answer to peer %s: %v", peer.ID, err)
 	}
+}
+
+func handleChat(user *matching.User, data string, log *logrus.Logger) {
+    peer := matching.GetPeer(user)
+
+    if peer != nil {
+        
+        message := map[string]interface{}{
+            "type": "chat",
+            "data": data,  
+        }
+
+        
+        jsonMessage, err := json.Marshal(message)
+        if err != nil {
+            log.Errorf("Failed to marshal chat message: %v", err)
+            return
+        }
+
+        
+        err = peer.Conn.WriteMessage(websocket.TextMessage, jsonMessage)
+        if err != nil {
+            log.Errorf("Failed to send chat message to peer %s: %v", peer.ID, err)
+        }
+    }
 }
 
 func handleIceCandidate(user *matching.User, candidate map[string]interface{}, log *logrus.Logger) {
